@@ -107,4 +107,6 @@ The included calls are sample interactions intended for demonstration.
 
 ## Disclaimer
 
-This project is an educational demonstration and is not intended for making real-world sales decisions without further validation.
+## Disclaimer
+
+This project demonstrates AI-powered customer call analysis using sentiment classification and machine learning-based purchase-likelihood estimation. Purchase estimates are experimental and have not been validated against real-world customer purchase outcomes. Further training and evaluation using actual customer data would be required before using the predictions for business decisions.
