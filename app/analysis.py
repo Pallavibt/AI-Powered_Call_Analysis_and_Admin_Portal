@@ -36,26 +36,118 @@ def analyze_sentiment(text):
 
 # 2. EXTRACT CUSTOMER SIGNALS
 
+import re
+
+BUYING_PHRASES = [
+    "ready to buy",
+    "want to buy",
+    "like to buy",
+    "ready to purchase",
+    "want to purchase",
+    "place the order",
+    "place an order",
+    "place my order",
+    "make a purchase",
+    "buy it",
+    "purchase it",
+]
+
 BUYING_WORDS = [
-    "buy", "purchase", "order", "ready to buy",
-    "place the order", "place an order",
+    "buy",
+    "purchase",
+    "order",
 ]
 
 URGENCY_WORDS = [
-    "today", "tomorrow", "this week",
-    "immediately", "as soon as possible",
+    "today",
+    "tomorrow",
+    "this week",
+    "immediately",
+    "as soon as possible",
 ]
 
 OBJECTION_WORDS = [
-    "expensive", "too high", "budget",
-    "discount", "problem", "disappointed",
+    "expensive",
+    "too high",
+    "budget",
+    "discount",
+    "problem",
+    "disappointed",
     "not decided",
 ]
 
 POSITIVE_WORDS = [
-    "like", "love", "good", "acceptable",
-    "ready", "interested", "works for me",
+    "like",
+    "love",
+    "good",
+    "acceptable",
+    "ready",
+    "interested",
+    "works for me",
 ]
+
+
+def is_negated(text, start, window=5):
+    """Check whether a buying phrase is preceded by a negation."""
+    preceding_words = text[:start].split()[-window:]
+    preceding_text = " ".join(preceding_words)
+
+    negations = [
+        "not",
+        "no",
+        "never",
+        "don't",
+        "dont",
+        "do not",
+        "does not",
+        "did not",
+        "cannot",
+        "can't",
+        "cant",
+        "won't",
+        "will not",
+        "would not",
+        "wouldn't",
+        "not want to",
+        "not interested in",
+    ]
+
+    return any(
+        re.search(r"\b" + re.escape(phrase) + r"\b", preceding_text)
+        for phrase in negations
+    )
+
+
+def count_positive_buying_signals(text):
+    """Count buying signals while ignoring directly negated phrases."""
+    text = text.lower()
+    count = 0
+
+    phrases = sorted(BUYING_PHRASES, key=len, reverse=True)
+
+    for phrase in phrases:
+        for match in re.finditer(r"\b" + re.escape(phrase) + r"\b", text):
+            if not is_negated(text, match.start()):
+                count += 1
+
+    # Count standalone buying words, avoiding duplicate phrase matches.
+    for word in BUYING_WORDS:
+        for match in re.finditer(r"\b" + re.escape(word) + r"\b", text):
+            start, end = match.span()
+
+            covered_by_phrase = any(
+                phrase_match.start() <= start
+                and phrase_match.end() >= end
+                for phrase in phrases
+                for phrase_match in re.finditer(
+                    r"\b" + re.escape(phrase) + r"\b", text
+                )
+            )
+
+            if not covered_by_phrase and not is_negated(text, start):
+                count += 1
+
+    return min(count, 5)
 
 
 def count_matches(text, words):
@@ -67,20 +159,26 @@ def extract_features(text):
     text = text.lower()
 
     return {
-        "buying_intent": min(count_matches(text, BUYING_WORDS), 5),
+        "buying_intent": count_positive_buying_signals(text),
         "urgency": min(count_matches(text, URGENCY_WORDS), 5),
         "objections": min(count_matches(text, OBJECTION_WORDS), 5),
         "positive_interest": min(count_matches(text, POSITIVE_WORDS), 5),
         "follow_up_needed": int(
-            any(word in text for word in [
-                "think about it",
-                "discuss",
-                "send me",
-                "not decided",
-                "next week",
-            ])
+            any(
+                phrase in text
+                for phrase in [
+                    "think about it",
+                    "discuss",
+                    "send me",
+                    "not decided",
+                    "next week",
+                    "need more time",
+                    "not ready",
+                ]
+            )
         ),
     }
+
 
 
 FEATURE_NAMES = [
